@@ -24,6 +24,7 @@ const orderRoutes = require('./modules/orders/order.routes')
 const customerRoutes = require('./modules/customers/customer.routes')
 const reportRoutes = require('./modules/reports/report.routes')
 const nhanhvnRoutes = require('./modules/nhanhvn/nhanhvn.routes')
+const nhanhAccountRoutes = require('./modules/nhanhvn/nhanhvn.accounts.routes')
 const webhookRoutes = require('./modules/nhanhvn/webhook.routes')
 
 const app = express()
@@ -138,6 +139,7 @@ app.use('/api/v1/orders', apiLimiter, orderRoutes)
 app.use('/api/v1/customers', apiLimiter, customerRoutes)
 app.use('/api/v1/reports', apiLimiter, reportRoutes)
 app.use('/api/v1/sync', apiLimiter, nhanhvnRoutes)
+app.use('/api/v1/nhanh/accounts', apiLimiter, nhanhAccountRoutes)
 app.use('/webhooks', webhookRoutes)
 
 // ─── Swagger docs ────────────────────────────────────────────────────────────

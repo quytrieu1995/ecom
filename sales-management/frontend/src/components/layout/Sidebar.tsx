@@ -65,7 +65,7 @@ const NAV_ITEMS = [
 ]
 
 const SETTINGS_ITEMS = [
-  { label: 'Nhanh.vn', href: '/settings/nhanhvn', icon: Store, module: 'settings', action: 'read' },
+  { label: 'Nhanh.vn', href: '/settings/nhanh', icon: Store, module: 'settings', action: 'read' },
   { label: 'Người dùng', href: '/settings/users', icon: Users, module: 'users', action: 'read' },
 ]
 

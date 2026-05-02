@@ -346,18 +346,41 @@ model OrderItem {
   @@map("order_items")
 }
 
+// ─── Nhanh.vn Accounts ──────────────────────────────────────────────────────
+
+model NhanhAccount {
+  id            Int            @id @default(autoincrement())
+  name          String
+  businessId    String
+  appId         String
+  accessToken   String
+  webhookSecret String?
+  isActive      Boolean        @default(true)
+  lastSyncAt    DateTime?
+  syncInterval  Int            @default(30)
+  note          String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  syncLogs      NhanhSyncLog[]
+
+  @@map("nhanh_accounts")
+}
+
 // ─── Nhanh.vn Sync ──────────────────────────────────────────────────────────
 
 model NhanhSyncLog {
-  id        String        @id @default(uuid())
-  type      String
-  direction SyncDirection
-  status    SyncStatus
-  payload   Json?
-  response  Json?
-  error     String?
-  createdAt DateTime      @default(now())
+  id         String        @id @default(uuid())
+  accountId  Int?
+  account    NhanhAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  type       String
+  direction  SyncDirection
+  status     SyncStatus
+  payload    Json?
+  response   Json?
+  error      String?
+  createdAt  DateTime      @default(now())
 
+  @@index([accountId])
   @@index([type])
   @@index([status])
   @@index([createdAt])
