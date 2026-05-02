@@ -143,7 +143,7 @@ const seed = async () => {
         name: 'Administrator',
         roleId: createdRoles['ADMIN'].id,
         status: 'ACTIVE',
-        mustChangePassword: true,
+        mustChangePassword: false,
       },
     })
     console.log(`  ✅ Admin user: ${adminEmail}`)
