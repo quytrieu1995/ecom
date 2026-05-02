@@ -55,7 +55,6 @@ const errorMiddleware = (err, req, res, next) => {
   }
 
   // Default
-  const statusCode = err.statusCode || err.status || 500
   const message =
     process.env.NODE_ENV === 'production' && statusCode === 500
       ? 'Lỗi máy chủ nội bộ'
