@@ -2,11 +2,12 @@
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY package.json ./
 
 # ─── Builder ───────────────────────────────────────────────────────────────────
 FROM base AS builder
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm install
 COPY . .
 RUN npm run build
 
@@ -31,6 +32,7 @@ CMD ["node", "server.js"]
 
 # ─── Development ───────────────────────────────────────────────────────────────
 FROM base AS development
+RUN npm install
 COPY . .
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
