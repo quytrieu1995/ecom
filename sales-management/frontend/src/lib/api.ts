@@ -60,6 +60,8 @@ api.interceptors.response.use(
         const { accessToken, refreshToken: newRefresh } = res.data.data
         localStorage.setItem('access_token', accessToken)
         localStorage.setItem('refresh_token', newRefresh)
+        // Cập nhật cookie để middleware Next.js đọc được
+        document.cookie = `access_token=${accessToken}; path=/; max-age=900; SameSite=Lax`
 
         api.defaults.headers.common.Authorization = `Bearer ${accessToken}`
         processQueue(null, accessToken)

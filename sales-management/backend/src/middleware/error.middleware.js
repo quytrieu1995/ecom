@@ -9,11 +9,18 @@ const { error } = require('../utils/response')
  * @param {import('express').NextFunction} next
  */
 const errorMiddleware = (err, req, res, next) => {
-  logger.error(`${req.method} ${req.path} — ${err.message}`, {
-    stack: err.stack,
-    body: req.body,
-    params: req.params,
-  })
+  const statusCode = err.statusCode || err.status || 500
+
+  // Only log server errors (5xx) — client errors (4xx) are expected
+  if (statusCode >= 500) {
+    logger.error(`${req.method} ${req.path} — ${err.message}`, {
+      stack: err.stack,
+      body: req.body,
+      params: req.params,
+    })
+  } else {
+    logger.warn(`${req.method} ${req.path} — ${statusCode} ${err.message}`)
+  }
 
   // Prisma known errors
   if (err.code === 'P2002') {

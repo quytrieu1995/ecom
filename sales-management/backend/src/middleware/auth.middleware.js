@@ -14,7 +14,16 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.slice(7)
-    const payload = jwt.verify(token, process.env.JWT_SECRET)
+
+    let payload
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET)
+    } catch (jwtErr) {
+      if (jwtErr.name === 'TokenExpiredError') {
+        return error(res, 'Token đã hết hạn', 401)
+      }
+      return error(res, 'Token không hợp lệ', 401)
+    }
 
     // Check blacklist (suspended users / logged out)
     if (await isTokenBlacklisted(payload.jti)) {
