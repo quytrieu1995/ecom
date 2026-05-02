@@ -212,6 +212,141 @@ router.post('/adjust', checkPermission('inventory', 'update'), logActivity('ADJU
   }
 })
 
+// POST /api/v1/inventory/import/batch — nhập kho nhiều sản phẩm
+router.post('/import/batch', checkPermission('inventory', 'create'), logActivity('IMPORT_INVENTORY_BATCH', 'inventory'), async (req, res, next) => {
+  try {
+    const { warehouseId, items, note: batchNote } = req.body
+
+    if (!warehouseId || !Array.isArray(items) || items.length === 0) {
+      return error(res, 'Thiếu kho hoặc danh sách sản phẩm', 400)
+    }
+
+    for (const item of items) {
+      if (!item.productId || !item.quantity || item.quantity <= 0) {
+        return error(res, `Sản phẩm #${item.productId || '?'} thiếu thông tin hoặc số lượng không hợp lệ`, 400)
+      }
+    }
+
+    const results = await prisma.$transaction(async (tx) => {
+      const processed = []
+
+      for (const item of items) {
+        const pId = parseInt(item.productId)
+        const vId = item.variantId ? parseInt(item.variantId) : null
+        const wId = parseInt(warehouseId)
+        const qty = parseInt(item.quantity)
+        const itemNote = item.note || batchNote || null
+
+        const existing = await tx.inventoryItem.findFirst({
+          where: { productId: pId, variantId: vId, warehouseId: wId },
+        })
+
+        const previousQty = existing?.quantity || 0
+        const newQty = previousQty + qty
+
+        await tx.inventoryItem.upsert({
+          where: { productId_variantId_warehouseId: { productId: pId, variantId: vId, warehouseId: wId } },
+          create: { productId: pId, variantId: vId, warehouseId: wId, quantity: newQty },
+          update: { quantity: newQty },
+        })
+
+        await tx.inventoryTransaction.create({
+          data: {
+            type: 'IMPORT', productId: pId, variantId: vId, warehouseId: wId,
+            quantity: qty, previousQty, newQty,
+            note: itemNote, createdBy: req.user.id,
+          },
+        })
+
+        processed.push({ productId: pId, quantity: qty, previousQty, newQty })
+      }
+
+      return processed
+    })
+
+    return success(res, { imported: results.length, items: results }, `Nhập kho thành công ${results.length} sản phẩm`, 201)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// POST /api/v1/inventory/export/batch — xuất kho nhiều sản phẩm
+router.post('/export/batch', checkPermission('inventory', 'create'), logActivity('EXPORT_INVENTORY_BATCH', 'inventory'), async (req, res, next) => {
+  try {
+    const { warehouseId, items, note: batchNote } = req.body
+
+    if (!warehouseId || !Array.isArray(items) || items.length === 0) {
+      return error(res, 'Thiếu kho hoặc danh sách sản phẩm', 400)
+    }
+
+    for (const item of items) {
+      if (!item.productId || !item.quantity || item.quantity <= 0) {
+        return error(res, `Sản phẩm #${item.productId || '?'} số lượng không hợp lệ`, 400)
+      }
+    }
+
+    const results = await prisma.$transaction(async (tx) => {
+      // Pre-validate all quantities before any update
+      for (const item of items) {
+        const pId = parseInt(item.productId)
+        const vId = item.variantId ? parseInt(item.variantId) : null
+        const wId = parseInt(warehouseId)
+        const qty = parseInt(item.quantity)
+
+        const existing = await tx.inventoryItem.findFirst({
+          where: { productId: pId, variantId: vId, warehouseId: wId },
+          include: { product: { select: { name: true } } },
+        })
+
+        if (!existing || existing.quantity < qty) {
+          throw Object.assign(
+            new Error(`Sản phẩm "${existing?.product?.name || `ID:${pId}`}" không đủ tồn kho (còn ${existing?.quantity || 0}, cần ${qty})`),
+            { statusCode: 400 }
+          )
+        }
+      }
+
+      const processed = []
+
+      for (const item of items) {
+        const pId = parseInt(item.productId)
+        const vId = item.variantId ? parseInt(item.variantId) : null
+        const wId = parseInt(warehouseId)
+        const qty = parseInt(item.quantity)
+        const itemNote = item.note || batchNote || null
+
+        const existing = await tx.inventoryItem.findFirst({
+          where: { productId: pId, variantId: vId, warehouseId: wId },
+        })
+
+        const previousQty = existing!.quantity
+        const newQty = previousQty - qty
+
+        await tx.inventoryItem.update({
+          where: { id: existing!.id },
+          data: { quantity: newQty },
+        })
+
+        await tx.inventoryTransaction.create({
+          data: {
+            type: 'EXPORT', productId: pId, variantId: vId, warehouseId: wId,
+            quantity: qty, previousQty, newQty,
+            note: itemNote, createdBy: req.user.id,
+          },
+        })
+
+        processed.push({ productId: pId, quantity: qty, previousQty, newQty })
+      }
+
+      return processed
+    })
+
+    return success(res, { exported: results.length, items: results }, `Xuất kho thành công ${results.length} sản phẩm`, 201)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // GET /api/v1/inventory/transactions
 router.get('/transactions', checkPermission('inventory', 'read'), async (req, res, next) => {
   try {
