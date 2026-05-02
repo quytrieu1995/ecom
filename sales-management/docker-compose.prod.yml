@@ -37,6 +37,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: production
+    image: sales-management-backend:latest
     container_name: sales_backend
     env_file: .env
     environment:
@@ -60,10 +61,7 @@ services:
       - "traefik.http.services.sales-api.loadbalancer.server.port=4000"
 
   worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: production
+    image: sales-management-backend:latest
     container_name: sales_worker
     command: node src/worker.js
     env_file: .env
