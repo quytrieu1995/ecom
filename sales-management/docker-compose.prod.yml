@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -55,15 +53,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      # API routes
       - "traefik.http.routers.sales-api.rule=Host(`ql.thuanchay.vn`) && (PathPrefix(`/api`) || PathPrefix(`/webhooks`))"
       - "traefik.http.routers.sales-api.entrypoints=websecure"
       - "traefik.http.routers.sales-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sales-api.priority=10"
       - "traefik.http.services.sales-api.loadbalancer.server.port=4000"
-      # HTTP → HTTPS (handled by Traefik globally, but explicit here)
-      - "traefik.http.routers.sales-api-http.rule=Host(`ql.thuanchay.vn`) && (PathPrefix(`/api`) || PathPrefix(`/webhooks`))"
-      - "traefik.http.routers.sales-api-http.entrypoints=web"
-      - "traefik.http.routers.sales-api-http.middlewares=redirect-https"
 
   worker:
     build:
@@ -105,25 +99,17 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      # Frontend routes (catch-all for domain)
       - "traefik.http.routers.sales-frontend.rule=Host(`ql.thuanchay.vn`)"
       - "traefik.http.routers.sales-frontend.entrypoints=websecure"
       - "traefik.http.routers.sales-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.sales-frontend.priority=1"
       - "traefik.http.services.sales-frontend.loadbalancer.server.port=3000"
-      # HTTP → HTTPS
-      - "traefik.http.routers.sales-frontend-http.rule=Host(`ql.thuanchay.vn`)"
-      - "traefik.http.routers.sales-frontend-http.entrypoints=web"
-      - "traefik.http.routers.sales-frontend-http.middlewares=redirect-https"
-      # Middleware redirect (shared)
-      - "traefik.http.middlewares.redirect-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-https.redirectscheme.permanent=true"
 
 networks:
   sales_net:
     driver: bridge
   proxy:
-    external: true   # Shared network với Traefik
+    external: true
 
 volumes:
   postgres_data:
