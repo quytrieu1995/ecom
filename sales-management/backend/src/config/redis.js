@@ -33,10 +33,18 @@ const connectRedis = async () => {
  * @param {number} ttl - seconds
  */
 const cacheOrFetch = async (key, fetchFn, ttl = 300) => {
-  const cached = await redis.get(key)
-  if (cached) return JSON.parse(cached)
+  try {
+    const cached = await redis.get(key)
+    if (cached) return JSON.parse(cached)
+  } catch {
+    // Redis unavailable — fall through to fetchFn
+  }
   const data = await fetchFn()
-  await redis.setex(key, ttl, JSON.stringify(data))
+  try {
+    await redis.setex(key, ttl, JSON.stringify(data))
+  } catch {
+    // Non-critical
+  }
   return data
 }
 

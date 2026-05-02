@@ -47,6 +47,7 @@ app.use(
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
+  'https://ql.thuanchay.vn',
   'http://localhost:3001',
   'http://localhost:3000',
 ].filter(Boolean)
@@ -54,10 +55,12 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Allow same-origin requests (no Origin header) or matching origins
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true)
       } else {
-        callback(new Error(`CORS blocked: ${origin}`))
+        // Don't throw — just deny silently (browser handles CORS error)
+        callback(null, false)
       }
     },
     credentials: true,

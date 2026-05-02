@@ -19,7 +19,21 @@ router.get('/', checkPermission('inventory', 'read'), async (req, res, next) => 
     if (warehouseId) where.warehouseId = parseInt(warehouseId)
     if (productId) where.productId = parseInt(productId)
     if (lowStock === 'true') {
-      where.AND = [{ quantity: { lte: prisma.inventoryItem.fields.minQuantity } }]
+      // Compare quantity <= minQuantity per record using raw condition
+      where.AND = [
+        { quantity: { lte: 0 } },
+      ]
+    }
+
+    // Override with proper field comparison via raw if lowStock requested
+    if (lowStock === 'true') {
+      const lowItems = await prisma.$queryRaw`
+        SELECT id FROM inventory_items WHERE quantity <= min_quantity
+      `
+      const ids = lowItems.map((r) => r.id)
+      if (ids.length === 0) return paginated(res, [], { page, limit, total: 0 })
+      delete where.AND
+      where.id = { in: ids }
     }
 
     const [items, total] = await Promise.all([
