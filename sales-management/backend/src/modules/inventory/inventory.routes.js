@@ -319,11 +319,11 @@ router.post('/export/batch', checkPermission('inventory', 'create'), logActivity
           where: { productId: pId, variantId: vId, warehouseId: wId },
         })
 
-        const previousQty = existing!.quantity
+        const previousQty = existing.quantity
         const newQty = previousQty - qty
 
         await tx.inventoryItem.update({
-          where: { id: existing!.id },
+          where: { id: existing.id },
           data: { quantity: newQty },
         })
 
