@@ -55,8 +55,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.routers.sales-api.rule=Host(`ql.thuanchay.vn`) && (PathPrefix(`/api`) || PathPrefix(`/webhooks`))"
-      - "traefik.http.routers.sales-api.entrypoints=websecure"
-      - "traefik.http.routers.sales-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sales-api.entrypoints=web"
       - "traefik.http.routers.sales-api.priority=10"
       - "traefik.http.services.sales-api.loadbalancer.server.port=4000"
 
@@ -98,8 +97,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.routers.sales-frontend.rule=Host(`ql.thuanchay.vn`)"
-      - "traefik.http.routers.sales-frontend.entrypoints=websecure"
-      - "traefik.http.routers.sales-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.sales-frontend.entrypoints=web"
       - "traefik.http.routers.sales-frontend.priority=1"
       - "traefik.http.services.sales-frontend.loadbalancer.server.port=3000"
 
