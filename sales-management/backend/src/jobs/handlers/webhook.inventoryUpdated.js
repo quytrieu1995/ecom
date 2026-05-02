@@ -1,21 +1,31 @@
-const { prisma } = require('../../../config/database')
+const { prisma } = require('../../config/database')
 
 module.exports = async (payload) => {
-  const product = await prisma.product.findUnique({ where: { nhanhId: String(payload.idNhanh) } })
-  if (!product) return
+  if (!payload.products || !Array.isArray(payload.products)) return
 
-  const warehouse = await prisma.warehouse.findFirst({ where: { isDefault: true } })
-  if (!warehouse) return
-
-  await prisma.inventoryItem.upsert({
-    where: {
-      productId_variantId_warehouseId: {
-        productId: product.id,
-        variantId: null,
-        warehouseId: warehouse.id,
+  for (const item of payload.products) {
+    await prisma.inventory.upsert({
+      where: { nhanhId: String(item.idNhanh) },
+      create: {
+        nhanhId: String(item.idNhanh),
+        quantity: item.remain || 0,
+        nhanhData: item,
+        product: {
+          connectOrCreate: {
+            where: { nhanhId: String(item.idNhanh) },
+            create: {
+              name: item.name || `Product ${item.idNhanh}`,
+              code: `NHANH_${item.idNhanh}`,
+              nhanhId: String(item.idNhanh),
+              salePrice: 0,
+            },
+          },
+        },
       },
-    },
-    create: { productId: product.id, warehouseId: warehouse.id, quantity: payload.remain || 0 },
-    update: { quantity: payload.remain || 0 },
-  })
+      update: {
+        quantity: item.remain || 0,
+        nhanhData: item,
+      },
+    })
+  }
 }

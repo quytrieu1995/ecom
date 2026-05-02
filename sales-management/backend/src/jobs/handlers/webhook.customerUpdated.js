@@ -1,21 +1,20 @@
-const { prisma } = require('../../../config/database')
+const { prisma } = require('../../config/database')
 
 module.exports = async (payload) => {
   await prisma.customer.upsert({
-    where: { nhanhId: String(payload.idNhanh) },
+    where: { nhanhId: String(payload.idNhanh || payload.id) },
     create: {
-      code: `KH_${payload.idNhanh}`,
       name: payload.name,
-      phone: payload.mobile,
-      email: payload.email,
-      address: payload.address,
-      nhanhId: String(payload.idNhanh),
+      nhanhId: String(payload.idNhanh || payload.id),
+      phone: payload.mobile || payload.phone || null,
+      email: payload.email || null,
+      nhanhData: payload,
     },
     update: {
       name: payload.name,
-      phone: payload.mobile,
-      email: payload.email,
-      address: payload.address,
+      phone: payload.mobile || payload.phone || null,
+      email: payload.email || null,
+      nhanhData: payload,
     },
   })
 }

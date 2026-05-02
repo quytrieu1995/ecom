@@ -1,5 +1,5 @@
-const { prisma } = require('../../../config/database')
-const { mapNhanhStatus } = require('../../nhanhvn/nhanhvn.helpers')
+const { prisma } = require('../../config/database')
+const { mapNhanhStatus } = require('../../modules/nhanhvn/nhanhvn.helpers')
 
 module.exports = async (payload) => {
   await prisma.order.upsert({

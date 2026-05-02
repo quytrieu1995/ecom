@@ -1,4 +1,4 @@
-const { prisma } = require('../../../config/database')
+const { prisma } = require('../../config/database')
 
 module.exports = async (payload) => {
   await prisma.order.updateMany({
