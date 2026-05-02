@@ -17,5 +17,6 @@ FROM base AS production
 RUN npm install --omit=dev && npm cache clean --force
 COPY . .
 RUN npx prisma generate
+RUN chmod +x entrypoint.sh
 EXPOSE 4000
-CMD ["node", "src/app.js"]
+CMD ["sh", "entrypoint.sh"]

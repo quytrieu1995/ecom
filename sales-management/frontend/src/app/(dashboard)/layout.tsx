@@ -8,17 +8,27 @@ import { Header } from '@/components/layout/Header'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, _hasHydrated } = useAuthStore()
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (!isAuthenticated) {
-      router.push('/login')
+      router.replace('/login')
       return
     }
     if (user?.mustChangePassword) {
-      router.push('/change-password')
+      router.replace('/change-password')
     }
-  }, [isAuthenticated, user, router])
+  }, [_hasHydrated, isAuthenticated, user, router])
+
+  // Chờ hydrate xong trước khi quyết định render hay redirect
+  if (!_hasHydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
 
   if (!isAuthenticated) return null
 
