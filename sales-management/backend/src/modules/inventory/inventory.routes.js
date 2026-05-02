@@ -7,7 +7,17 @@ const { cacheOrFetch } = require('../../config/redis')
 
 router.use(authenticate)
 
-// GET /api/v1/inventory — current stock
+// GET /api/v1/inventory/warehouses
+router.get('/warehouses', async (req, res, next) => {
+  try {
+    const warehouses = await cacheOrFetch('warehouses:all', () =>
+      prisma.warehouse.findMany({ orderBy: { name: 'asc' } }), 600
+    )
+    return success(res, warehouses)
+  } catch (err) {
+    next(err)
+  }
+})
 router.get('/', checkPermission('inventory', 'read'), async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1
