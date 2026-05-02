@@ -3,16 +3,13 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/auth.store'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { Header } from '@/components/layout/Header'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function ChangePasswordLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { isAuthenticated, _hasHydrated } = useAuthStore()
 
   useEffect(() => {
-    if (!_hasHydrated) return
-    if (!isAuthenticated) {
+    if (_hasHydrated && !isAuthenticated) {
       router.replace('/login')
     }
   }, [_hasHydrated, isAuthenticated, router])
@@ -28,12 +25,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isAuthenticated) return null
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 to-white dark:from-zinc-950 dark:to-zinc-900">
+      {children}
     </div>
   )
 }
