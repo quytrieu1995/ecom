@@ -452,11 +452,24 @@ const AdjustForm = () => {
 
 const StockTab = () => {
   const [page, setPage] = useState(1)
+  const [warehouseId, setWarehouseId] = useState('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
+
+  const { data: warehouses } = useWarehouses()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['inventory', page],
+    queryKey: ['inventory', page, warehouseId, lowStockOnly],
     queryFn: () =>
-      api.get('/inventory', { params: { page, limit: 20 } }).then((r) => r.data),
+      api
+        .get('/inventory', {
+          params: {
+            page,
+            limit: 20,
+            warehouseId: warehouseId || undefined,
+            lowStock: lowStockOnly ? 'true' : undefined,
+          },
+        })
+        .then((r) => r.data),
     keepPreviousData: true,
   })
 
@@ -465,17 +478,58 @@ const StockTab = () => {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label htmlFor="inv-wh" className="text-sm text-muted-foreground whitespace-nowrap">
+              Kho
+            </label>
+            <select
+              id="inv-wh"
+              value={warehouseId}
+              onChange={(e) => {
+                setWarehouseId(e.target.value)
+                setPage(1)
+              }}
+              className="h-10 min-w-[160px] rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Tất cả kho</option>
+              {(warehouses as any[] | undefined)?.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={lowStockOnly}
+              onChange={(e) => {
+                setLowStockOnly(e.target.checked)
+                setPage(1)
+              }}
+              className="rounded border-input"
+            />
+            Chỉ sắp hết / hết
+          </label>
+        </div>
+        {pagination && pagination.total > 0 && (
+          <p className="text-sm tabular-nums text-muted-foreground">{pagination.total} dòng tồn</p>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-border">
+            <thead className="border-b border-border bg-muted/40">
               <tr>
-                <th className="p-3 text-left font-medium text-muted-foreground">Sản phẩm</th>
-                <th className="p-3 text-left font-medium text-muted-foreground">SKU</th>
-                <th className="p-3 text-left font-medium text-muted-foreground">Kho</th>
-                <th className="p-3 text-right font-medium text-muted-foreground">Tồn kho</th>
-                <th className="p-3 text-right font-medium text-muted-foreground">Tối thiểu</th>
-                <th className="p-3 text-center font-medium text-muted-foreground">Trạng thái</th>
+                <th className="p-3 text-left font-semibold text-muted-foreground">Sản phẩm</th>
+                <th className="p-3 text-left font-semibold text-muted-foreground">SKU</th>
+                <th className="p-3 text-left font-semibold text-muted-foreground">Kho</th>
+                <th className="p-3 text-right font-semibold text-muted-foreground">Tồn kho</th>
+                <th className="p-3 text-right font-semibold text-muted-foreground">Tối thiểu</th>
+                <th className="p-3 text-center font-semibold text-muted-foreground">Trạng thái</th>
               </tr>
             </thead>
             <tbody>
@@ -645,28 +699,46 @@ export default function InventoryPage() {
   const [tab, setTab] = useState<TabId>('stock')
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1 w-fit">
+    <div className="space-y-6">
+      <div className="border-b border-border pb-4">
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Xem tồn theo kho, tạo phiếu nhập / xuất nhiều dòng, điều chỉnh sau kiểm kê và tra cứu lịch sử giao dịch.
+        </p>
+      </div>
+
+      <div
+        className="flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1 shadow-sm"
+        role="tablist"
+        aria-label="Khu vực kho"
+      >
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            type="button"
+            role="tab"
+            id={`inv-tab-${id}`}
             aria-selected={tab === id}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              tab === id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            aria-controls={`inv-panel-${id}`}
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+              tab === id
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
             }`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
             {label}
           </button>
         ))}
       </div>
 
-      {tab === 'stock'   && <StockTab />}
+      <div id={`inv-panel-${tab}`} role="tabpanel" aria-labelledby={`inv-tab-${tab}`}>
+        {tab === 'stock'   && <StockTab />}
       {tab === 'import'  && <ImportExportForm type="IMPORT" />}
       {tab === 'export'  && <ImportExportForm type="EXPORT" />}
       {tab === 'adjust'  && <AdjustForm />}
       {tab === 'history' && <HistoryTab />}
+      </div>
     </div>
   )
 }

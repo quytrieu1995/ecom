@@ -1,16 +1,24 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   Search, Plus, X, Loader2, Trash2, ChevronDown, ChevronUp,
+  ClipboardList, CalendarRange,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { PermissionGate } from '@/components/ui/PermissionGate'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +71,189 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const inputCls =
   'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+// ─── Order detail dialog ──────────────────────────────────────────────────────
+
+const OrderDetailDialog = ({
+  orderId,
+  onClose,
+}: {
+  orderId: string | null
+  onClose: () => void
+}) => {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['order-detail', orderId],
+    queryFn: () => api.get(`/orders/${orderId}`).then((r) => r.data.data),
+    enabled: !!orderId,
+  })
+
+  const o = data as
+    | {
+        code: string
+        status: string
+        paymentMethod: string
+        paymentStatus: string
+        subtotal: number | string
+        discount: number | string
+        shippingFee: number | string
+        total: number | string
+        note?: string | null
+        createdAt: string
+        nhanhId?: string | null
+        customer?: { name: string; phone?: string | null } | null
+        items?: Array<{
+          id: string
+          productName: string
+          sku: string
+          quantity: number
+          unitPrice: number | string
+          discount: number | string
+          total: number | string
+        }>
+        createdBy?: { name: string } | null
+      }
+    | undefined
+
+  const num = (v: number | string | undefined) => {
+    if (v === undefined || v === null) return 0
+    const n = Number(v)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  return (
+    <Dialog open={!!orderId} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 font-mono text-base">
+            <ClipboardList className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            {isLoading ? 'Đang tải...' : o?.code || 'Chi tiết đơn'}
+          </DialogTitle>
+          <DialogDescription>
+            Thông tin đơn hàng, khách và các dòng hàng hóa.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="space-y-3 py-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        )}
+
+        {isError && (
+          <p className="py-6 text-center text-sm text-destructive">Không tải được chi tiết đơn.</p>
+        )}
+
+        {!isLoading && !isError && o && (
+          <div className="space-y-5 text-sm">
+            <div className="grid gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Khách hàng</p>
+                <p className="font-medium">{o.customer?.name || 'Khách lẻ'}</p>
+                {o.customer?.phone && <p className="text-muted-foreground">{o.customer.phone}</p>}
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Trạng thái & thanh toán</p>
+                <p>
+                  <span className="mr-2 rounded-full bg-muted px-2 py-0.5 text-xs">
+                    {STATUS_MAP[o.status]?.label || o.status}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {o.paymentStatus === 'PAID'
+                      ? 'Đã thanh toán'
+                      : o.paymentStatus === 'PARTIAL'
+                      ? 'Thanh toán một phần'
+                      : 'Chưa thanh toán'}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  PT: {PAYMENT_LABELS[o.paymentMethod] || o.paymentMethod}
+                </p>
+              </div>
+              <div className="sm:col-span-2">
+                <p className="text-xs font-medium text-muted-foreground">Thời gian</p>
+                <p>{formatDateTime(o.createdAt)}</p>
+              </div>
+              {o.createdBy?.name && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium text-muted-foreground">Người tạo</p>
+                  <p>{o.createdBy.name}</p>
+                </div>
+              )}
+              {o.nhanhId && (
+                <div className="sm:col-span-2">
+                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                    Nhanh.vn #{o.nhanhId}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 font-semibold">Sản phẩm</p>
+              <div className="overflow-hidden rounded-lg border border-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Tên</th>
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground">SL</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Đơn giá</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Thành tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(o.items || []).map((line) => (
+                      <tr key={line.id} className="border-t border-border">
+                        <td className="px-3 py-2">
+                          <span className="font-medium">{line.productName}</span>
+                          <span className="ml-2 font-mono text-xs text-muted-foreground">{line.sku}</span>
+                        </td>
+                        <td className="px-3 py-2 text-center tabular-nums">{line.quantity}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(num(line.unitPrice))}</td>
+                        <td className="px-3 py-2 text-right font-medium tabular-nums">
+                          {formatCurrency(num(line.total))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Tạm tính</span>
+                  <span className="tabular-nums">{formatCurrency(num(o.subtotal))}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Giảm giá</span>
+                  <span className="tabular-nums text-red-600">-{formatCurrency(num(o.discount))}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Phí giao hàng</span>
+                  <span className="tabular-nums">{formatCurrency(num(o.shippingFee))}</span>
+                </div>
+                <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
+                  <span>Tổng cộng</span>
+                  <span className="text-primary tabular-nums">{formatCurrency(num(o.total))}</span>
+                </div>
+              </div>
+            </div>
+
+            {o.note && (
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Ghi chú</p>
+                <p className="rounded-lg bg-muted/40 p-3 text-muted-foreground">{o.note}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 // ─── Create Order Modal ───────────────────────────────────────────────────────
 
@@ -446,13 +637,25 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', page, search, status],
+    queryKey: ['orders', page, search, status, startDate, endDate],
     queryFn: () =>
       api
-        .get('/orders', { params: { page, limit: 20, search, status: status || undefined } })
+        .get('/orders', {
+          params: {
+            page,
+            limit: 20,
+            search: search || undefined,
+            status: status || undefined,
+            startDate: startDate || undefined,
+            endDate: endDate || undefined,
+          },
+        })
         .then((r) => r.data),
     keepPreviousData: true,
   })
@@ -467,36 +670,81 @@ export default function OrdersPage() {
   const pagination = data?.pagination
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
+        <p className="max-w-xl text-sm text-muted-foreground">
+          Lọc theo thời gian và trạng thái; bấm vào một dòng để xem chi tiết đơn và dòng hàng.
+        </p>
+        {pagination && pagination.total > 0 && (
+          <p className="text-sm font-medium tabular-nums text-muted-foreground">{pagination.total} đơn</p>
+        )}
+      </div>
+
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Mã đơn, tên khách..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="h-9 w-60 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              aria-label="Tìm đơn hàng"
+              className="h-10 w-full min-w-[200px] rounded-lg border border-input bg-background pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:w-56"
             />
           </div>
           <select
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(1)
+            }}
+            className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Lọc trạng thái đơn"
           >
             <option value="">Tất cả trạng thái</option>
             {Object.entries(STATUS_MAP).map(([key, val]) => (
-              <option key={key} value={key}>{val.label}</option>
+              <option key={key} value={key}>
+                {val.label}
+              </option>
             ))}
           </select>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5">
+            <CalendarRange className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value)
+                setPage(1)
+              }}
+              className="h-8 border-0 bg-transparent text-sm focus:outline-none focus:ring-0"
+              aria-label="Từ ngày"
+            />
+            <span className="text-muted-foreground">—</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value)
+                setPage(1)
+              }}
+              className="h-8 border-0 bg-transparent text-sm focus:outline-none focus:ring-0"
+              aria-label="Đến ngày"
+            />
+          </div>
         </div>
 
         <PermissionGate module="orders" action="create">
           <button
+            type="button"
             onClick={() => setShowCreate(true)}
-            className="flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
             Tạo đơn hàng
@@ -505,18 +753,18 @@ export default function OrdersPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-border">
+            <thead className="border-b border-border bg-muted/40">
               <tr>
-                <th className="p-3 text-left font-medium text-muted-foreground">Mã đơn</th>
-                <th className="p-3 text-left font-medium text-muted-foreground">Khách hàng</th>
-                <th className="p-3 text-right font-medium text-muted-foreground">Tổng tiền</th>
-                <th className="p-3 text-center font-medium text-muted-foreground">Thanh toán</th>
-                <th className="p-3 text-center font-medium text-muted-foreground">Trạng thái</th>
-                <th className="p-3 text-center font-medium text-muted-foreground">Nguồn</th>
-                <th className="p-3 text-left font-medium text-muted-foreground">Ngày tạo</th>
+                <th className="p-3 text-left font-semibold text-muted-foreground">Mã đơn</th>
+                <th className="p-3 text-left font-semibold text-muted-foreground">Khách hàng</th>
+                <th className="p-3 text-right font-semibold text-muted-foreground">Tổng tiền</th>
+                <th className="p-3 text-center font-semibold text-muted-foreground">Thanh toán</th>
+                <th className="p-3 text-center font-semibold text-muted-foreground">Trạng thái</th>
+                <th className="p-3 text-center font-semibold text-muted-foreground">Nguồn</th>
+                <th className="p-3 text-left font-semibold text-muted-foreground">Ngày tạo</th>
               </tr>
             </thead>
             <tbody>
@@ -540,7 +788,20 @@ export default function OrdersPage() {
                 orders.map((order: any) => {
                   const s = STATUS_MAP[order.status] || { label: order.status, color: 'bg-gray-100 text-gray-700' }
                   return (
-                    <tr key={order.id} className="border-b border-border/50 hover:bg-accent/40">
+                    <tr
+                      key={order.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailId(order.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setDetailId(order.id)
+                        }
+                      }}
+                      aria-label={`Xem chi tiết đơn ${order.code}`}
+                      className="cursor-pointer border-b border-border/50 transition-colors hover:bg-accent/50"
+                    >
                       <td className="p-3 font-mono text-xs font-medium">{order.code}</td>
                       <td className="p-3">{order.customer?.name || 'Khách lẻ'}</td>
                       <td className="p-3 text-right font-semibold">{formatCurrency(order.total)}</td>
@@ -561,17 +822,28 @@ export default function OrdersPage() {
                             : 'Chưa TT'}
                         </span>
                       </td>
-                      <td className="p-3 text-center">
-                        <PermissionGate module="orders" action="update" fallback={
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${s.color}`}>{s.label}</span>
-                        }>
+                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <PermissionGate
+                          module="orders"
+                          action="update"
+                          fallback={
+                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${s.color}`}>
+                              {s.label}
+                            </span>
+                          }
+                        >
                           <select
                             value={order.status}
-                            onChange={(e) => updateStatusMutation.mutate({ id: order.id, status: e.target.value })}
-                            className={`rounded-full border-0 bg-transparent px-2 py-0.5 text-xs font-medium cursor-pointer ${s.color}`}
+                            onChange={(e) =>
+                              updateStatusMutation.mutate({ id: order.id, status: e.target.value })
+                            }
+                            className={`cursor-pointer rounded-full border-0 bg-transparent px-2 py-0.5 text-xs font-medium ${s.color}`}
+                            aria-label={`Đổi trạng thái đơn ${order.code}`}
                           >
                             {Object.entries(STATUS_MAP).map(([key, val]) => (
-                              <option key={key} value={key}>{val.label}</option>
+                              <option key={key} value={key}>
+                                {val.label}
+                              </option>
                             ))}
                           </select>
                         </PermissionGate>
@@ -596,24 +868,25 @@ export default function OrdersPage() {
           </table>
         </div>
 
-        {pagination && (
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm">
-            <p className="text-muted-foreground">Tổng: {pagination.total} đơn hàng</p>
+        {pagination && pagination.total > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm">
+            <p className="text-muted-foreground">
+              Hiển thị trang {page}/{pagination.totalPages}
+            </p>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 disabled={!pagination.hasPrevPage}
                 onClick={() => setPage((p) => p - 1)}
-                className="rounded border border-border px-3 py-1 hover:bg-accent disabled:opacity-40"
+                className="rounded-lg border border-border px-3 py-1.5 hover:bg-accent disabled:opacity-40"
               >
                 Trước
               </button>
-              <span className="text-muted-foreground">
-                Trang {page}/{pagination.totalPages}
-              </span>
               <button
+                type="button"
                 disabled={!pagination.hasNextPage}
                 onClick={() => setPage((p) => p + 1)}
-                className="rounded border border-border px-3 py-1 hover:bg-accent disabled:opacity-40"
+                className="rounded-lg border border-border px-3 py-1.5 hover:bg-accent disabled:opacity-40"
               >
                 Sau
               </button>
@@ -621,6 +894,8 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      <OrderDetailDialog orderId={detailId} onClose={() => setDetailId(null)} />
 
       {/* Create Modal */}
       {showCreate && (
